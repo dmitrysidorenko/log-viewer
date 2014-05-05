@@ -1,62 +1,105 @@
 var app = angular.module("app");
 
 var mainCtrl = app.controller("mainCtrl", function($scope, $http){
+    $scope.items = [];
+
+    // filter
     $scope.filterOptions = {
         filterText: "",
         useExternalFilter: true
     };
+
+    // paging
     $scope.totalServerItems = 0;
     $scope.pagingOptions = {
-        pageSizes: [250, 500, 1000],
-        pageSize: 250,
+        pageSizes: [25, 50, 100],
+        pageSize: 25,
         currentPage: 1
     };
-    $scope.setPagingData = function(data, page, pageSize){
-        var pagedData = data;
-        $scope.myData = pagedData;
-        $scope.totalServerItems = 1000;
-        if (!$scope.$$phase) {
-            $scope.$apply();
-        }
+
+    // sort
+    $scope.sortOptions = {
+        fields: ["ip"],
+        directions: ["ASC"]
     };
-    $scope.getPagedDataAsync = function (pageSize, page, searchText) {
+
+    // grid
+    $scope.gridOptions = {
+        data: "items",
+        columnDefs: [
+            { field: 'ip', displayName: 'IP' },
+            { field: 'datetime', displayName: 'Date/Time' },
+            { field: 'userAgent', displayName: 'User Agent' },
+            { field: 'url', displayName: 'URL' },
+            { field: 'statusCode', displayName: 'Status Code' },
+            { field: 'generationTime', displayName: 'Generation Time' },
+            { field: 'size', displayName: 'Size' }
+        ],
+        enablePaging: true,
+        enablePinning: true,
+        pagingOptions: $scope.pagingOptions,
+        filterOptions: $scope.filterOptions,
+        keepLastSelected: true,
+        multiSelect: false,
+        showColumnMenu: true,
+        showFilter: true,
+        showGroupPanel: true,
+        showFooter: true,
+        sortInfo: $scope.sortOptions,
+        totalServerItems: "totalServerItems",
+        useExternalSorting: true,
+        i18n: "en"
+    };
+
+    $scope.refresh = function() {
         setTimeout(function () {
-            var data;
-            if (false && searchText) {
-                var ft = searchText.toLowerCase();
-                $http.get('/api/log?f='+ft).success(function (largeLoad) {
-                    data = largeLoad.filter(function(item) {
-                        return JSON.stringify(item).toLowerCase().indexOf(ft) != -1;
-                    });
-                    $scope.setPagingData(data,page,pageSize);
-                });
-            } else {
-                $http.get('/api/log?page=' + page + '&pageSize=' + pageSize).success(function (largeLoad) {
-                    $scope.setPagingData(largeLoad,page,pageSize);
-                });
+            var sb = [];
+            for (var i = 0; i < $scope.sortOptions.fields.length; i++) {
+                sb.push($scope.sortOptions.directions[i] === "desc" ? "-" : "+");
+                sb.push($scope.sortOptions.fields[i]);
             }
+
+            var p = {
+                name: $scope.filterOptions.filterText,
+                pageNumber: $scope.pagingOptions.currentPage,
+                pageSize: $scope.pagingOptions.pageSize,
+                sortInfo: sb.join("")
+            };
+
+            $http({
+                url: "/api/log",
+                method: "GET",
+                params: p
+            }).success(function(data, status, headers, config) {
+                $scope.totalServerItems = data.totalItems;
+                $scope.items = data.items;
+                if (!$scope.$$phase) {
+                    $scope.$apply();
+                }
+            }).error(function(data, status, headers, config) {
+                alert(JSON.stringify(data));
+            });
         }, 100);
     };
 
-    $scope.getPagedDataAsync($scope.pagingOptions.pageSize, $scope.pagingOptions.currentPage);
-
+    // watches
     $scope.$watch('pagingOptions', function (newVal, oldVal) {
-        if (newVal !== oldVal && newVal.currentPage !== oldVal.currentPage) {
-            $scope.getPagedDataAsync($scope.pagingOptions.pageSize, $scope.pagingOptions.currentPage, $scope.filterOptions.filterText);
+        if (newVal !== oldVal) {
+            $scope.refresh();
         }
     }, true);
+
     $scope.$watch('filterOptions', function (newVal, oldVal) {
         if (newVal !== oldVal) {
-            $scope.getPagedDataAsync($scope.pagingOptions.pageSize, $scope.pagingOptions.currentPage, $scope.filterOptions.filterText);
+            $scope.refresh();
         }
     }, true);
 
-    $scope.gridOptions = {
-        data: 'myData',
-        enablePaging: true,
-        showFooter: true,
-        totalServerItems: 'totalServerItems',
-        pagingOptions: $scope.pagingOptions,
-        filterOptions: $scope.filterOptions
-    };
+    $scope.$watch('sortOptions', function (newVal, oldVal) {
+        if (newVal !== oldVal) {
+            $scope.refresh();
+        }
+    }, true);
+
+    $scope.refresh();
 });

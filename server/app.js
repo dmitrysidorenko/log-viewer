@@ -7,6 +7,8 @@ var path = require('path');
 var app = express();
 var router = express.Router();
 
+var db = require("./db");
+
 app.use(require('body-parser')());
 app.use(require('method-override')());
 
@@ -22,55 +24,35 @@ router.get('/', function (req, res) {
 //api
 //(date/time. ip, user-agent, url, status-code, generation-time, size)
 router.get('/api/log', function (req, res) {
-    var page = req.query['page'] || 0;
-    var pageSize = req.query['pageSize'] || 50;
-    res.send([
-        {
-            datetime: new Date(),
-            ip: 1,
-            userAgent: "Chrome",
-            url: "http://some-site.com",
-            statusCode: 200,
-            generationTime: '10.34',
-            size: 123
-        },
-        {
-            datetime: new Date(),
-            ip: 1,
-            userAgent: "Chrome",
-            url: "http://some-site.com",
-            statusCode: 200,
-            generationTime: '10.34',
-            size: 123
-        },
-        {
-            datetime: new Date(),
-            ip: 1,
-            userAgent: "Chrome",
-            url: "http://asome-site.com",
-            statusCode: 200,
-            generationTime: '10.34',
-            size: 123
-        },
-        {
-            datetime: new Date(),
-            ip: 1,
-            userAgent: "Chrome",
-            url: "http://some-site.com",
-            statusCode: 500,
-            generationTime: '10.34',
-            size: 123
-        },
-        {
-            datetime: new Date(),
-            ip: 1,
-            userAgent: "Chrome",
-            url: "http://some-site.com",
-            statusCode: 200,
-            generationTime: '10.34',
-            size: 123
-        },
-    ]);
+    var page = +req.query['pageNumber'] || 0;
+    var pageSize = +req.query['pageSize'] || 50;
+    var sortInfo = req.query['sortInfo'] ? req.query['sortInfo'].split(/(\+|-)/) : [];
+
+    var sortDir = sortInfo[1] || '+';
+    var sortField = sortInfo[2];
+
+
+    console.log(sortDir, sortField);
+
+    var isAsc = sortDir === '+';
+    var from = (page - 1) * pageSize;
+    var to = ((page - 1)  * pageSize) + pageSize;
+    var sort = {};
+    sort[sortField] = isAsc ? 1 : -1;
+
+    db.LogLineModel.find().sort(sort).skip(from).limit(to).exec(function(err, items){
+       if(!err){
+           db.LogLineModel.count(function(err, count){
+               if(err){
+                   return;
+               }
+               res.send({
+                   totalItems:count,
+                   items: items
+               });
+           });
+       }
+    });
 });
 
 //run

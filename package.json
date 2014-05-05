@@ -6,6 +6,7 @@
     "repository": "https://github.com/dmitrysidorenko/log-viewer",
     "license": "MIT",
     "devDependencies": {
+        "mongoose": "3.6.x",
         "karma": "~0.10",
         "protractor": "~0.20.1",
         "http-server": "^0.6.1",
